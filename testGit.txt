@@ -1,0 +1,117 @@
+package com.bjpowernode.springboot.controller;
+
+import com.alibaba.boot.dubbo.annotation.DubboConsumer;
+import com.bjpowernode.springboot.model.User;
+import com.bjpowernode.springboot.service.UserService;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Controller
+public class UserController {
+
+    //引用远程dubbo服务
+    @DubboConsumer
+    private UserService userService;
+
+    /**
+     * 用户分类列表页
+     *
+     * @param model
+     * @param currentPage
+     * @return
+     */
+    @RequestMapping("/")
+    public String index (Model model,
+                         @RequestParam(value="currentPage", required = false) Integer currentPage) {
+
+        int pageSize = 10;
+
+        if (null == currentPage) {
+            currentPage = 1;
+        }
+
+        //查询数据总条数
+        int totalRow = userService.getUserByTotal();
+
+        //计算总共多少页
+        int totalPage = totalRow / pageSize; //有可能没有除尽，有余数
+        int left = totalRow % pageSize; //取模，就是取余数
+        if (left > 0) {
+            totalPage = totalPage + 1;
+        }
+
+        Map<String, Object> map = new ConcurrentHashMap<String, Object>();
+        int startRow = (currentPage-1) * pageSize;
+        map.put("startRow", startRow);
+        map.put("pageSize", pageSize);
+
+        //查询当前页要展示的10条数据
+        List<User> userList = userService.getUserByPage(map);
+
+        model.addAttribute("userList", userList);
+
+        model.addAttribute("currentPage", currentPage);
+        model.addAttribute("totalPage", totalPage);
+
+        return "index";
+    }
+
+    /**
+     * 删除用户
+     *
+     * @param id
+     * @return
+     */
+    @RequestMapping("/delete")
+    public String delete (@RequestParam("id") Integer id) {
+
+        //删除用户（根据ID）
+        userService.deleteUser(id);
+
+        return "redirect:/";
+    }
+
+
+    /**
+     * 取修改用户
+     *
+     * @param id
+     * @return
+     */
+    @RequestMapping("/toUpdate")
+    public String toUpdate (Model model,
+            @RequestParam("id") Integer id) {
+
+        //删除用户（根据ID）
+        User user = userService.getUser(id);
+        model.addAttribute("user", user);
+        return "addUser";
+    }
+
+    /**
+     * 提交修改用户信息
+     *
+     * @param user
+     * @return
+     */
+    @RequestMapping("/update")
+    public String update (User user) {
+        if (null != user.getId()) {
+            //修改操作
+            userService.updateUser(user);
+        } else {
+            userService.addUser(user);
+        }
+        return "redirect:/";
+    }
+
+    @RequestMapping("/toAddUser")
+    public String toAddUser () {
+        return "addUser";
+    }
+}
